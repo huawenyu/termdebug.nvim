@@ -54,6 +54,15 @@
 if exists(':Termdebug')
     finish
 endif
+silent! let s:log = logger#getLogger(expand('<sfile>:t'))
+let s:script_path = expand('<sfile>:p:h')
+
+
+" if !exists("s:init")
+"     let s:init = 1
+"     silent! let s:log = logger#getLogger(expand('<sfile>:t'))
+" endif
+
 
 " The terminal feature does not work with gdb on win32.
 if !has('win32')
@@ -199,9 +208,13 @@ func s:CheckGdbRunning()
 endfunc
 
 func s:StartDebug_term(dict)
+    let __func__ = "s:StartDebug_term() "
+
     " Open a terminal window without a job, to run the debugged program in.
-    execute s:vertical ? 'vnew' : 'new'
-    let s:pty_job_id = termopen('tail -f /dev/null;#gdb program')
+    exec "norm mP"
+    let s:win_main = win_getid()
+    execute s:vertical ? 'tab vnew' : 'tab new'
+    let s:pty_job_id = termopen('tail -f /dev/null; ### The program output window')
     if s:pty_job_id == 0
         echoerr 'invalid argument (or job table is full) while opening terminal window'
         return
@@ -213,18 +226,21 @@ func s:StartDebug_term(dict)
     let s:ptybuf = pty_job_info['buffer']
     let pty = pty_job_info['pty']
     let s:ptywin = win_getid(winnr())
-    if s:vertical
-        " Assuming the source code window will get a signcolumn, use two more
-        " columns for that, thus one less for the terminal window.
-        exe (&columns / 2 - 1) . "wincmd |"
-        if s:allleft
-            " use the whole left column
-            wincmd H
-        endif
-    endif
+
+    call win_gotoid(s:win_main)
+    exec "norm 'P"
+    " if s:vertical
+    "     " Assuming the source code window will get a signcolumn, use two more
+    "     " columns for that, thus one less for the terminal window.
+    "     exe (&columns / 2 - 1) . "wincmd |"
+    "     if s:allleft
+    "         " use the whole left column
+    "         wincmd H
+    "     endif
+    " endif
 
     " Create a hidden terminal window to communicate with gdb
-    let s:comm_job_id = jobstart('tail -f /dev/null;#gdb communication', {
+    let s:comm_job_id = jobstart('echo "wilson jobstart window"; tail -f /dev/null;#gdb communication', {
                 \ 'on_stdout': function('s:CommOutput'),
                 \ 'pty': v:true,
                 \ })
@@ -246,8 +262,10 @@ func s:StartDebug_term(dict)
     let gdb_args = get(a:dict, 'gdb_args', [])
     let proc_args = get(a:dict, 'proc_args', [])
 
-    let cmd = [g:termdebugger, '-quiet', '-tty', pty, '--eval-command', 'echo startupdone\n'] + gdb_args
+    let cmd = [g:termdebugger, '-command', s:script_path..'/../bin/gdbinit',
+                \ '-quiet', '-tty', pty, '--eval-command', 'echo startupdone\n'] + gdb_args
     "call ch_log('executing "' . join(cmd) . '"')
+    silent! call s:log.info(__func__, join(cmd))
     execute 'new'
     let s:gdb_job_id = termopen(cmd, {'on_exit': function('s:EndTermDebug')})
     if s:gdb_job_id == 0
@@ -343,13 +361,24 @@ func s:StartDebug_term(dict)
     " "Type <return> to continue" prompt.
     call s:SendCommand('set pagination off')
 
+    if g:gdb_auto_bp
+        if filereadable(g:hw_gdb_file_bp)
+            call s:SendCommand('brestore')
+        else
+            call s:SendCommand('br main')
+        endif
+    endif
+
     " Set the filetype, this can be used to add mappings.
     set filetype=termdebug
 
     call s:StartDebugCommon(a:dict)
+    call win_gotoid(s:win_main)
+    stopinsert
 endfunc
 
 func s:StartDebug_prompt(dict)
+    let __func__ = "s:StartDebug_prompt() "
     " Open a window with a prompt buffer to run gdb in.
     if s:vertical
         vertical new
@@ -430,11 +459,21 @@ func s:StartDebug_prompt(dict)
         call s:SendCommand('set env COLORS = ' . &t_Co)
         call s:SendCommand('set env VIM_TERMINAL = ' . v:version)
     endif
+
     call s:SendCommand('set print pretty on')
+    if g:gdb_auto_bp
+        if filereadable(g:hw_gdb_file_bp)
+            call s:SendCommand('brestore')
+        else
+            call s:SendCommand('br main')
+        endif
+    endif
+
     call s:SendCommand('set breakpoint pending on')
     " Disable pagination, it causes everything to stop at the gdb
     call s:SendCommand('set pagination off')
 
+    call s:SendCommand('set pagination off')
     " Set arguments to be run
     if len(proc_args)
         call s:SendCommand('set args ' . join(proc_args))
@@ -797,6 +836,14 @@ func s:GotoProgram()
     endif
 endfunc
 
+
+func s:GdbUntil()
+    let bpFile = expand('%:p')
+    call s:SendCommand('tbreak '..bpFile..':'..line("."))
+    call s:SendCommand('continue')
+endfunc
+
+
 " Install commands in the current window to control the debugger.
 func s:InstallCommands()
     let save_cpo = &cpo
@@ -814,9 +861,13 @@ func s:InstallCommands()
     " using -exec-continue results in CTRL-C in gdb window not working
     if s:way == 'prompt'
         command Continue call s:SendCommand('continue')
+        command Skip call s:SendCommand('skip')
     else
         command Continue call chansend(s:gdb_job_id, "continue\r")
+        command Skip call chansend(s:gdb_job_id, "skip\r")
     endif
+
+    command GdbUntil call s:GdbUntil()
 
     command -range -nargs=* Evaluate call s:Evaluate(<range>, <q-args>)
     command Gdb call win_gotoid(s:gdbwin)
@@ -1145,13 +1196,16 @@ endfunction
 
 " Handle an error.
 func s:HandleError(msg)
+    let __func__ = "s:HandleError() "
     if s:ignoreEvalError
         " Result of s:SendEval() failed, ignore.
         let s:ignoreEvalError = 0
         let s:evalFromBalloonExpr = 0
         return
     endif
-    echoerr substitute(a:msg, '.*msg="\(.*\)"', '\1', '')
+    "echoerr substitute(a:msg, '.*msg="\(.*\)"', '\1', '')
+    echomsg __func__..substitute(a:msg, '.*msg="\(.*\)"', '\1', '')
+    silent! call s:log.info(__func__, substitute(a:msg, '.*msg="\(.*\)"', '\1', ''))
 endfunc
 
 func s:GotoSourcewinOrCreateIt()
@@ -1278,8 +1332,15 @@ let s:BreakpointSigns = []
 func s:CreateBreakpoint(id, subid)
     let nr = printf('%d.%d', a:id, a:subid)
     if index(s:BreakpointSigns, nr) == -1
+        let signLen = len(g:vimgdb_sign_breakpoints)
         call add(s:BreakpointSigns, nr)
-        exe "sign define debugBreakpoint" . nr . " text=" . substitute(nr, '\..*', '', '') . " texthl=debugBreakpoint"
+        "exe "sign define debugBreakpoint" . nr . " text=" . substitute(nr, '\..*', '', '') . " texthl=debugBreakpoint"
+        if nr >= signLen
+            exe "sign define debugBreakpoint" . nr . " text=" . g:vimgdb_sign_breakpoints[signLen - 1] . " texthl=debugBreakpoint"
+        else
+            exe "sign define debugBreakpoint" . nr . " text=" . g:vimgdb_sign_breakpoints[nr] . " texthl=debugBreakpoint"
+        endif
+        call s:SendCommand('bsave')
     endif
 endfunc
 

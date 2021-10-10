@@ -1,0 +1,159 @@
+#set filename-display absolute
+#set remotetimeout 50
+set confirm off
+set width 0
+set verbose off
+set logging off
+
+set pagination off
+# disable clumsy paging (use terminal scrollback buffer instead)
+set height 0
+#set prompt [31m(gdb) [m
+
+handle SIGUSR2 nostop noignore noprint
+handle SIGPIPE nostop noignore noprint
+# for freertos POSIX simulation:
+handle SIGUSR1 nostop noignore noprint
+handle SIG34 nostop noignore noprint
+
+set print elements 2048
+set print pretty on
+#set print array off
+set print array on
+set print array-indexes on
+set print symbol-filename on
+set print null-stop on
+set print sevenbit-strings on
+set print union on
+set print demangle on
+set print object on
+set print static-members off
+set print vtbl on
+#source ./.gdb.breakpoints
+
+#define bsave
+#	save breakpoints ./.breakpoints
+#end
+#
+#define brestore
+#	source ./.breakpoints
+#end
+
+define skip
+	tbreak +1
+	jump +1
+end
+
+define bsave
+	shell rm -f /tmp/vim.gdb_bp
+	set logging file /tmp/vim.gdb_bp
+	set logging on
+	info break
+	set logging off
+	## reformat on-the-fly to a valid gdb command file
+	##shell perl -n -e 'print "break $1\n" if /^\d+.+?(\S+)$/g' brestore.txt > brestore.gdb
+	shell perl -ne "print \"break \$1 \n\" if /at\s(.*:\d+)/" /tmp/vim.gdb_bp > vim.gdb_bp
+end
+
+document bsave
+	store actual breakpoints
+end
+
+define brestore
+	source vim.gdb_bp
+end
+
+document brestore
+	restore breakpoints saved by bsave
+end
+
+define parser_echo
+	dont-repeat
+	echo $arg0\n
+end
+
+define parser_bt
+	set logging off
+	set logging file /tmp/vimgdb.bt
+	set logging overwrite on
+	set logging redirect on
+	set logging on
+	bt
+	set logging off
+    #echo neobugger_parseend\n
+end
+
+define parser_var_bt
+	set logging off
+	set logging file /tmp/vimgdb.bt
+	set logging overwrite on
+	set logging redirect on
+	set logging on
+	bt
+	set logging off
+
+	shell mv /tmp/vimgdb.var /tmp/vimgdb.var.old
+	set logging file /tmp/vimgdb.var
+	set logging overwrite on
+	set logging redirect on
+	set logging on
+	info local
+	set logging off
+	#echo neobugger_parseend\n
+	# brew install git-delta
+	#shell diff -u /tmp/vimgdb.var.old /tmp/vimgdb.var | diff-so-fancy > /tmp/vimgdb.var2
+	shell delta /tmp/vimgdb.var.old /tmp/vimgdb.var | sed '1,2d;4,5d' > /tmp/vimgdb.var2
+end
+
+define silent_on
+	set logging off
+	set logging file /dev/null
+	set logging overwrite off
+	set logging redirect on
+	set logging on
+end
+
+define silent_off
+	set logging off
+end
+
+# User-defined command hooks
+# [https://ftp.gnu.org/old-gnu/Manuals/gdb-5.1.1/html_node/gdb_189.html]
+define hook-stop
+	handle SIGALRM nopass
+	#parser_bt
+	parser_var_bt
+end
+
+define hook-run
+	handle SIGALRM pass
+end
+
+define hook-continue
+	handle SIGALRM pass
+end
+
+define hookpost-break
+	#save breakpoints /tmp/vimgdb.bp
+	bsave
+	echo _@breakpoint@_\n
+end
+
+define hookpost-enable
+	#save breakpoints /tmp/vimgdb.bp
+	bsave
+	echo _@breakpoint@_\n
+end
+
+define hookpost-disable
+	#save breakpoints /tmp/vimgdb.bp
+	bsave
+	echo _@breakpoint@_\n
+end
+
+define hookpost-delete
+	#save breakpoints /tmp/vimgdb.bp
+	bsave
+	echo _@breakpoint@_\n
+end
+
