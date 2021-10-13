@@ -36,7 +36,7 @@ Sample 2:
 	* dein.nvim
 		call dein#add('voldikss/vim-floaterm')	
 
-## Keymap: [<default>]
+## Keymap: [default]
 
 Keymap [Enable]/disable:  g:termdebugMap
 ```vim
