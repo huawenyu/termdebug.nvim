@@ -92,6 +92,7 @@ let s:stopped = 1
 let s:parsing_disasm_msg = 0
 let s:asm_lines = []
 let s:asm_addr = ''
+let s:views = {}
 
 " Take a breakpoint number as used by GDB and turn it into an integer.
 " The breakpoint may contain a dot: 123.4 -> 123004
@@ -152,17 +153,28 @@ func s:StartDebug_internal(dict)
 
     let s:save_columns = 0
     let s:allleft = 0
-    if exists('g:termdebug_wide')
+    if g:termdebug_wide == 0
+        let s:vertical = 0
+    elseif g:termdebug_wide == 1
+        let s:vertical = 1
+    elseif g:termdebug_wide == 2
+        let s:vertical = 1
+        if winwidth(s:sourcewin) > (winheight(s:sourcewin) * 3)
+            let s:vertical = 1
+        else
+            let s:vertical = 0
+        endif
+    elseif g:termdebug_wide > 60
         if &columns < g:termdebug_wide
             let s:save_columns = &columns
             let &columns = g:termdebug_wide
             " If we make the Vim window wider, use the whole left halve for the debug
             " windows.
             let s:allleft = 1
+            let s:vertical = 0
+        else
+            let s:vertical = 1
         endif
-        let s:vertical = 1
-    else
-        let s:vertical = 0
     endif
 
     " Override using a terminal window by setting g:termdebug_use_prompt to 1.
@@ -211,8 +223,8 @@ func s:StartDebug_term(dict)
     let __func__ = "s:StartDebug_term() "
 
     " Open a terminal window without a job, to run the debugged program in.
-    exec "norm mP"
-    let s:win_main = win_getid()
+    "exec "norm mP"
+    let g:termdebugWinmain = win_getid()
     execute s:vertical ? 'tab vnew' : 'tab new'
     let s:pty_job_id = termopen('tail -f /dev/null; ### The program output window')
     if s:pty_job_id == 0
@@ -227,8 +239,8 @@ func s:StartDebug_term(dict)
     let pty = pty_job_info['pty']
     let s:ptywin = win_getid(winnr())
 
-    call win_gotoid(s:win_main)
-    exec "norm 'P"
+    call win_gotoid(g:termdebugWinmain)
+    "exec "norm 'P"
     " if s:vertical
     "     " Assuming the source code window will get a signcolumn, use two more
     "     " columns for that, thus one less for the terminal window.
@@ -266,7 +278,13 @@ func s:StartDebug_term(dict)
                 \ '-quiet', '-tty', pty, '--eval-command', 'echo startupdone\n'] + gdb_args
     "call ch_log('executing "' . join(cmd) . '"')
     silent! call s:log.info(__func__, join(cmd))
-    execute 'new'
+
+    if s:vertical
+        execute 'vnew'
+    else
+        execute 'new'
+    endif
+
     let s:gdb_job_id = termopen(cmd, {'on_exit': function('s:EndTermDebug')})
     if s:gdb_job_id == 0
         echoerr 'invalid argument (or job table is full) while opening gdb terminal window'
@@ -361,11 +379,11 @@ func s:StartDebug_term(dict)
     " "Type <return> to continue" prompt.
     call s:SendCommand('set pagination off')
 
-    if g:gdb_auto_bp
+    if g:termdebug_auto_bp
         if filereadable(g:hw_gdb_file_bp)
             call s:SendCommand('brestore')
         else
-            call s:SendCommand('br main')
+            call s:SendCommand('tbreak main')
         endif
     endif
 
@@ -373,7 +391,7 @@ func s:StartDebug_term(dict)
     set filetype=termdebug
 
     call s:StartDebugCommon(a:dict)
-    call win_gotoid(s:win_main)
+    call win_gotoid(g:termdebugWinmain)
     stopinsert
 endfunc
 
@@ -461,7 +479,7 @@ func s:StartDebug_prompt(dict)
     endif
 
     call s:SendCommand('set print pretty on')
-    if g:gdb_auto_bp
+    if g:termdebug_auto_bp
         if filereadable(g:hw_gdb_file_bp)
             call s:SendCommand('brestore')
         else
@@ -498,8 +516,9 @@ func s:StartDebugCommon(dict)
     " Each entry is a dict, containing the sub-breakpoints.  Key is the subid.
     " For a breakpoint that is just a number the subid is zero.
     " For a breakpoint "123.4" the id is "123" and subid is "4".
-    " Example, when breakpoint "44", "123", "123.1" and "123.2" exist:
-    " {'44': {'0': entry}, '123': {'0': entry, '1': entry, '2': entry}}
+    " Example:
+    "   when breakpoint "44", "123", "123.1" and "123.2" exist:
+    "   {'44': {'0': entry}, '123': {'0': entry, '1': entry, '2': entry}}
     let s:breakpoints = {}
 
     " Contains breakpoints by file/lnum.  The key is "fname:lnum".
@@ -530,6 +549,7 @@ func s:SendCommand(cmd)
     endif
 endfunc
 
+
 " This is global so that a user can create their mappings with this.
 func TermDebugSendCommand(cmd)
     if s:way == 'prompt'
@@ -553,6 +573,143 @@ func TermDebugSendCommand(cmd)
         endif
     endif
 endfunc
+
+
+" Update redraw
+func s:ViewRedraw()
+    if !s:stopped | return | endif
+
+    for tname in keys(s:views)
+        if s:views.tbpoint
+            exec 'FloatermShow '..tname
+        endif
+    endfor
+
+    call win_gotoid(g:termdebugWinmain)
+    stopinsert
+endfunc
+
+
+" Hide All, but Show one-by-one to avoid redraw
+" @param mode 0 hide, 1 show, 2 toggle
+func s:ViewToggle(tname, mode)
+    let ret = 0
+    if !s:stopped | return | endif
+
+    " Update redraw
+
+    if has_key(s:views, a:tname)
+        if s:views[a:tname]
+            if a:mode == 2 || a:mode == 0
+                let s:views[a:tname] = 0
+                exec 'FloatermHide '..a:tname
+                let ret = 2
+            else
+                exec 'FloatermShow '..a:tname
+            endif
+        else
+            if a:mode == 2 || a:mode == 1
+                let s:views[a:tname] = 1
+                exec 'FloatermShow '..a:tname
+                let ret = 2
+            endif
+        endif
+    endif
+
+    "call s:ViewRedraw()
+    return ret
+endfunc
+
+
+func TermdebugGoToTag(srvName)
+    let __func__ = 'TermdebugGoToTag() '
+
+    " let cmdStr = "nvr --servername '"..a:srvName.."'"
+    "             \ " -c 'tag "..expand('<cword>').." '"
+    call search('(', 'cz')
+    norm h
+    let cmdStr = 'echo "//tag ['..expand("<cword>")..']" >> '..g:termdebugFile
+    "silent! call s:log.info(__func__, "cmdStr", cmdStr)
+    call system(cmdStr)
+endfunc
+
+
+func s:ViewCreate()
+    let ret = 0
+    if !s:stopped | return | endif
+
+    let ret = 1
+    if !has_key(s:views, 'tbpoint')
+        exec 'FloatermNew! --wintype=float --name=tbpoint --height=0.3 --width=0.3'..
+                    \ " --position=topright --title='breakpoint:tbpoint'"..
+                    \ " vim "
+                    \ "  -c 'set ft=c'"
+                    \ "  -c 'set nomodifiable'"
+                    \ "  -c 'nnoremap <silent> <2-LeftMouse> :<c-u>call TermdebugGoToTag(g:termdebugMain)<cr>'"
+                    \ "  -c 'nnoremap <silent> <Enter> :<c-u>call TermdebugGoToTag(g:termdebugMain)<cr>'"
+                    \ "  -c 'let g:termdebugSelf=\"tbpoint\"'"
+                    \ "  -c 'let g:termdebugFile=\"vim.gdb_bpoint\"'"
+                    \ "  -c 'let g:termdebugMain=\""..v:servername.."\"'"
+                    \ "  -c 'call Termtail(g:termdebugFile)'"
+                    \ "  ./vim.gdb_bpoint"
+        let s:views['tbpoint'] = 1
+        let ret = 2
+    endif
+
+    if !has_key(s:views, 'tbtrace')
+        exec "FloatermNew! --wintype=float --name=tbtrace --height=0.3 --width=0.3"..
+                    \ " --position=right --title='backtrace:tbtrace'"..
+                    \ " vim "
+                    \ "  -c 'set ft=c'"
+                    \ "  -c 'set nomodifiable'"
+                    \ "  -c 'nnoremap <silent> <2-LeftMouse> :<c-u>call TermdebugGoToTag(g:termdebugMain)<cr>'"
+                    \ "  -c 'nnoremap <silent> <Enter> :<c-u>call TermdebugGoToTag(g:termdebugMain)<cr>'"
+                    \ "  -c 'let g:termdebugSelf=\"tbtrace\"'"
+                    \ "  -c 'let g:termdebugFile=\"vim.gdb_btrace\"'"
+                    \ "  -c 'let g:termdebugMain=\""..v:servername.."\"'"
+                    \ "  -c 'call Termtail(g:termdebugFile)\'"
+                    \ "  ./vim.gdb_btrace"
+        let s:views['tbtrace'] = 1
+        let ret = 2
+    endif
+
+    call s:ViewRedraw()
+    return ret
+endfunc
+
+
+func TermDebugView(tname)
+    let ret = s:ViewCreate()
+    if !ret || ret == 2 || len(a:tname) == 0 | return | endif
+
+    if a:tname ==# 'all'
+        " exec 'FloatermToggle!'
+        let allShow = 1
+        for tname in keys(s:views)
+            if !s:views[tname]
+                let allShow = 0
+            endif
+        endfor
+
+        if allShow
+            for tname in keys(s:views)
+                call s:ViewToggle(tname, 2)
+            endfor
+        else
+            for tname in keys(s:views)
+                if !s:views[tname]
+                    call s:ViewToggle(tname, 2)
+                    break
+                endif
+            endfor
+        endif
+        call win_gotoid(g:termdebugWinmain)
+        stopinsert
+    else
+        call s:ViewToggle(a:tname, 1)
+    endif
+endfunc
+
 
 " Function called when entering a line in the prompt buffer.
 func s:PromptCallback(text)
@@ -649,6 +806,28 @@ func s:DecodeMessage(quotedText)
     endwhile
     return result
 endfunc
+
+
+" Extract the value from a gdb mi message with field key.
+" Sample message:
+"   =breakpoint-created,bkpt={
+"   number="2",type="breakpoint",disp="keep",
+"   enabled="y",addr="0x000000000000141d",
+"   func="main",file="t2.c",
+"   fullname="/home/hyu/tmp/t2.c",line="113",
+"   thread-groups=["i1"],times="0",original-location="main"}
+func s:GetKeyValue(msg, key)
+    if a:msg !~ a:key
+        return ''
+    endif
+    let value = s:DecodeMessage(substitute(a:msg, '.*'..a:key..'=', '', ''))
+    if has('win32') && value =~ ':\\\\'
+        " sometimes the name arrives double-escaped
+        let value = substitute(value, '\\\\', '\\', 'g')
+    endif
+    return value
+endfunc
+
 
 " Extract the "name" value from a gdb message with fullname="name".
 func s:GetFullname(msg)
@@ -808,7 +987,7 @@ func s:CommOutput(job_id, msgs, event)
         elseif msg != ''
             if msg =~ '^\(\*stopped\|\*running\|=thread-selected\)'
                 call s:HandleCursor(msg)
-            elseif msg =~ '^\^done,bkpt=' || msg =~ '^=breakpoint-created,'
+            elseif msg =~ '^\^done,bkpt=' || msg =~ '^=breakpoint-created,' || msg =~ '^=breakpoint-modified,'
                 call s:HandleNewBreakpoint(msg)
             elseif msg =~ '^=breakpoint-deleted,'
                 call s:HandleBreakpointDelete(msg)
@@ -850,7 +1029,11 @@ func s:InstallCommands()
     set cpo&vim
 
     command -nargs=? Break call s:SetBreakpoint(<q-args>)
-    command Clear call s:ClearBreakpoint()
+    command ToggleAll call s:ToggleBreakpointAll()
+
+    command Clear call s:ClearBreakpointOne()
+    command ClearAll call s:ClearBreakpointAll()
+
     command Step call s:SendCommand('-exec-step')
     command Over call s:SendCommand('-exec-next')
     command Finish call s:SendCommand('-exec-finish')
@@ -959,6 +1142,9 @@ endfunc
 
 " :Break - Set a breakpoint at the cursor position.
 func s:SetBreakpoint(at)
+    let ret = s:ToggleBreakpointOne()
+    if ret | return | endif
+
     " Setting a breakpoint may not work while the program is running.
     " Interrupt to make it work.
     let do_continue = 0
@@ -969,7 +1155,7 @@ func s:SetBreakpoint(at)
         else
             call s:SendCommand('-exec-interrupt')
         endif
-        sleep 10m
+        sleep 300m
     endif
 
     " Use the fname:lnum format, older gdb can't handle --source.
@@ -981,14 +1167,74 @@ func s:SetBreakpoint(at)
     endif
 endfunc
 
-" :Clear - Delete a breakpoint at the cursor position.
-func s:ClearBreakpoint()
+
+func s:_ToggleBreakpoint(bploc_)
+    let __func__ = "s:_ToggleBreakpoint() "
+    let bploc = a:bploc_
+    let ret = 0
+
+    if has_key(s:breakpoint_locations, bploc)
+        let idx = -1
+        for id_enabled in s:breakpoint_locations[bploc]
+            let idx += 1
+            let id = id_enabled.id
+            let enabled = id_enabled.enabled
+
+            if has_key(s:breakpoints, id)
+                let ret = 1
+                " Assume this always works, the reply is simply "^done".
+                if enabled ==# 'y'
+                    call s:SendCommand('-break-disable '..id)
+                    let new_enabled = 'n'
+                else
+                    call s:SendCommand('-break-enable '..id)
+                    let new_enabled = 'y'
+                endif
+
+                " for subid in keys(s:breakpoints[id])
+                "     exe 'sign unplace ' . s:Breakpoint2SignNumber(id, subid)
+                " endfor
+                let s:breakpoint_locations[bploc][idx]['enabled'] = new_enabled
+                for [subid, entry] in items(s:breakpoints[id])
+                    let s:breakpoints[id][subid]['enabled'] = new_enabled
+                    call s:PlaceSign(id, subid, new_enabled, entry)
+                endfor
+
+                silent! call s:log.info(__func__, new_enabled ==# 'y' ? "enable":"disable",
+                            \ " breakpoint: ", id_enabled)
+                break
+            endif
+        endfor
+    endif
+    return ret
+endfunc
+
+
+" :Toggle - Toggle a breakpoint at the cursor position.
+func s:ToggleBreakpointOne()
     let fname = fnameescape(expand('%:p'))
     let lnum = line('.')
     let bploc = printf('%s:%d', fname, lnum)
+    return s:_ToggleBreakpoint(bploc)
+endf
+
+
+func s:ToggleBreakpointAll()
+    for bploc in keys(s:breakpoint_locations)
+        call s:_ToggleBreakpoint(bploc)
+    endfor
+endfunc
+
+
+" :Clear - Delete a breakpoint at the cursor position.
+func s:_ClearBreakpoint(bploc_)
+    let bploc = a:bploc_
+
     if has_key(s:breakpoint_locations, bploc)
         let idx = 0
-        for id in s:breakpoint_locations[bploc]
+        for id_enabled in s:breakpoint_locations[bploc]
+            let id = id_enabled.id
+
             if has_key(s:breakpoints, id)
                 " Assume this always works, the reply is simply "^done".
                 call s:SendCommand('-break-delete ' . id)
@@ -1007,6 +1253,23 @@ func s:ClearBreakpoint()
         endif
     endif
 endfunc
+
+
+" :Clear - Delete a breakpoint at the cursor position.
+func s:ClearBreakpointOne()
+    let fname = fnameescape(expand('%:p'))
+    let lnum = line('.')
+    let bploc = printf('%s:%d', fname, lnum)
+    call s:_ClearBreakpoint(bploc)
+endf
+
+
+func s:ClearBreakpointAll()
+    for bploc in keys(s:breakpoint_locations)
+        call s:_ClearBreakpoint(bploc)
+    endfor
+endf
+
 
 func s:Run(args)
     if a:args != ''
@@ -1216,6 +1479,7 @@ func s:GotoSourcewinOrCreateIt()
     endif
 endfunc
 
+
 func s:GotoAsmwinOrCreateIt()
     if !win_gotoid(s:asmwin)
         if win_gotoid(s:sourcewin)
@@ -1262,10 +1526,12 @@ endfunc
 " Will update the sign that shows the current position.
 func s:HandleCursor(msg)
     let wid = win_getid(winnr())
+    "call s:ViewRedraw()
 
     if a:msg =~ '^\*stopped'
         "call ch_log('program stopped')
         let s:stopped = 1
+
     elseif a:msg =~ '^\*running'
         "call ch_log('program running')
         let s:stopped = 0
@@ -1329,17 +1595,25 @@ endfunc
 
 let s:BreakpointSigns = []
 
-func s:CreateBreakpoint(id, subid)
+func s:CreateBreakpoint(id, subid, enabled)
+    let __func__ = "s:CreateBreakpoint() "
+
     let nr = printf('%d.%d', a:id, a:subid)
     if index(s:BreakpointSigns, nr) == -1
-        let signLen = len(g:vimgdb_sign_breakpoints)
+        let signLen = len(g:termdebug_sign_breakpoints)
         call add(s:BreakpointSigns, nr)
+
         "exe "sign define debugBreakpoint" . nr . " text=" . substitute(nr, '\..*', '', '') . " texthl=debugBreakpoint"
-        if nr >= signLen
-            exe "sign define debugBreakpoint" . nr . " text=" . g:vimgdb_sign_breakpoints[signLen - 1] . " texthl=debugBreakpoint"
-        else
-            exe "sign define debugBreakpoint" . nr . " text=" . g:vimgdb_sign_breakpoints[nr] . " texthl=debugBreakpoint"
-        endif
+        "ChangeAs:
+            silent! call s:log.info(__func__, "define debugBreakpoint", nr)
+            if nr >= signLen
+                exe "sign define debugBreakpointEn"  ..nr.." text="..g:termdebug_sign_breakpoints[signLen - 1]..' texthl=Search'
+                exe "sign define debugBreakpointDis" ..nr.." text="..g:termdebug_sign_breakpoints[signLen - 1]..' texthl=Function'
+            else
+                exe "sign define debugBreakpointEn"  ..nr.." text="..g:termdebug_sign_breakpoints[nr]..' texthl=Search'
+                exe "sign define debugBreakpointDis".. nr.." text="..g:termdebug_sign_breakpoints[nr]..' texthl=Function'
+            endif
+
         call s:SendCommand('bsave')
     endif
 endfunc
@@ -1351,15 +1625,18 @@ endfunction
 " Handle setting a breakpoint
 " Will update the sign that shows the breakpoint
 func s:HandleNewBreakpoint(msg)
-    if a:msg !~ 'fullname='
-        " a watch does not have a file name
-        return
-    endif
+    " a watch does not have a file name
+    if a:msg !~ 'fullname=' | return | endif
+    let __func__ = "s:HandleNewBreakpoint() "
+
+    "silent! call s:log.info(__func__, "breakpoint.msg", a:msg)
     for msg in s:SplitMsg(a:msg)
         let fname = s:GetFullname(msg)
         if empty(fname)
             continue
         endif
+
+        let bp_enable = s:GetKeyValue(msg, "enabled")
         let nr = substitute(msg, '.*number="\([0-9.]*\)\".*', '\1', '')
         if empty(nr)
             return
@@ -1368,7 +1645,7 @@ func s:HandleNewBreakpoint(msg)
         " If "nr" is 123 it becomes "123.0" and subid is "0".
         " If "nr" is 123.4 it becomes "123.4.0" and subid is "4"; "0" is discarded.
         let [id, subid; _] = map(split(nr . '.0', '\.'), 'v:val + 0')
-        call s:CreateBreakpoint(id, subid)
+        call s:CreateBreakpoint(id, subid, bp_enable)
 
         if has_key(s:breakpoints, id)
             let entries = s:breakpoints[id]
@@ -1386,23 +1663,32 @@ func s:HandleNewBreakpoint(msg)
         let lnum = substitute(msg, '.*line="\([^"]*\)".*', '\1', '')
         let entry['fname'] = fname
         let entry['lnum'] = lnum
+        let entry['enabled'] = bp_enable
 
         let bploc = printf('%s:%d', fname, lnum)
         if !has_key(s:breakpoint_locations, bploc)
             let s:breakpoint_locations[bploc] = []
         endif
-        let s:breakpoint_locations[bploc] += [id]
+        let s:breakpoint_locations[bploc] += [{'id': id, 'enabled': bp_enable}]
 
         if bufloaded(fname)
-            call s:PlaceSign(id, subid, entry)
+            call s:PlaceSign(id, subid, bp_enable, entry)
         endif
     endfor
 endfunc
 
-func s:PlaceSign(id, subid, entry)
+func s:PlaceSign(id, subid, enabled, entry)
     let nr = printf('%d.%d', a:id, a:subid)
-    exe 'sign place ' . s:Breakpoint2SignNumber(a:id, a:subid) . ' line=' . a:entry['lnum'] . ' name=debugBreakpoint' . nr . ' priority=110 file=' . a:entry['fname']
     let a:entry['placed'] = 1
+
+    "exe 'sign place ' . s:Breakpoint2SignNumber(a:id, a:subid) . ' line=' . a:entry['lnum'] . ' name=debugBreakpoint' . nr . ' priority=110 file=' . a:entry['fname']
+    "ChangeAs:
+        "exe 'sign unplace ' . s:Breakpoint2SignNumber(a:id, a:subid)
+        if a:enabled ==# 'y'
+            exe 'sign place ' . s:Breakpoint2SignNumber(a:id, a:subid) . ' line=' . a:entry['lnum'] . ' name=debugBreakpointEn' . nr . ' priority=110 file=' . a:entry['fname']
+        else
+            exe 'sign place ' . s:Breakpoint2SignNumber(a:id, a:subid) . ' line=' . a:entry['lnum'] . ' name=debugBreakpointDis' . nr . ' priority=110 file=' . a:entry['fname']
+        endif
 endfunc
 
 " Handle deleting a breakpoint
@@ -1440,7 +1726,7 @@ func s:BufRead()
     for [id, entries] in items(s:breakpoints)
         for [subid, entry] in items(entries)
             if entry['fname'] == fname
-                call s:PlaceSign(id, subid, entry)
+                call s:PlaceSign(id, subid, 1, entry)
             endif
         endfor
     endfor
