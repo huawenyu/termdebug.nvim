@@ -35,6 +35,7 @@ Sample 2:
 		Plug 'voldikss/vim-floaterm'
 	* dein.nvim
 		call dein#add('voldikss/vim-floaterm')	
+- remote plugin by vim command `:UpdateRemotePlugins`
 
 ## Keymap: [default]
 

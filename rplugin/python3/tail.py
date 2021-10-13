@@ -63,20 +63,19 @@ class EntryTermdebug(object):
             for line in iter(p.stdout.readline, ""):
                 #self.logger.info("command_handler line=[" + line + "]")
                 #t = datetime.datetime.now() + datetime.timedelta(milliseconds=100)
-                if line.startswith('//end'):
+                if line.startswith('//@end'):
                     #self.vim.command("checktime")
-                    self.vim.command("e " + self.vim.vars['termdebugFile'])
+                    self.vim.command("e " + self.vim.vars['termdebugSelf'])
                     #self.vim.command("redraw")
-
-                    ## The method can refresh the floaterm, but cause gdb-terminal lost the focus,
-                    ##   so comment it, and force refresh by manally click the floaterm.
-                    #
-                    # command = 'nvr --servername="' + self.vim.vars['termdebugMain'] + '"' \
-                    #         + ' -c "FloatermShow ' + self.vim.vars['termdebugSelf'] + '"' \
-                    #         + ' -c "call win_gotoid(g:termdebugWinmain)"'
-                    # self.logger.info("eject vim cmd=" + command)
-                    # os.system(command)
-                elif line.startswith('//tag '):
+                elif line.startswith('//@update'):
+                    # The method can refresh the floaterm, but cause gdb-terminal lost the focus,
+                    #   so comment it, and force refresh by manally click the floaterm.
+                    command = 'nvr --servername="' + self.vim.vars['termdebugMain'] + '"' \
+                            + ' -c "FloatermShow ' + self.vim.vars['termdebugSelf'] + '"' \
+                            + ' -c "call win_gotoid(g:termdebugWinmain)"'
+                    #self.logger.info("eject vim cmd=" + command)
+                    os.system(command)
+                elif line.startswith('//@tag '):
                     command = 'nvr --servername="' + self.vim.vars['termdebugMain'] + '"' \
                             + ' -c "call win_gotoid(g:termdebugWinmain)"' \
                             + ' -c "tag ' + line[line.find("[")+1:line.find("]")] + '"'

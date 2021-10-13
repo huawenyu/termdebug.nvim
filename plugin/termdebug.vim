@@ -380,7 +380,7 @@ func s:StartDebug_term(dict)
     call s:SendCommand('set pagination off')
 
     if g:termdebug_auto_bp
-        if filereadable(g:hw_gdb_file_bp)
+        if filereadable(g:termdebugListBpoint)
             call s:SendCommand('brestore')
         else
             call s:SendCommand('tbreak main')
@@ -480,10 +480,10 @@ func s:StartDebug_prompt(dict)
 
     call s:SendCommand('set print pretty on')
     if g:termdebug_auto_bp
-        if filereadable(g:hw_gdb_file_bp)
+        if filereadable(g:termdebugListBpoint)
             call s:SendCommand('brestore')
         else
-            call s:SendCommand('br main')
+            call s:SendCommand('tbreak main')
         endif
     endif
 
@@ -580,7 +580,7 @@ func s:ViewRedraw()
     if !s:stopped | return | endif
 
     for tname in keys(s:views)
-        if s:views.tbpoint
+        if s:views[tname]
             exec 'FloatermShow '..tname
         endif
     endfor
@@ -597,7 +597,6 @@ func s:ViewToggle(tname, mode)
     if !s:stopped | return | endif
 
     " Update redraw
-
     if has_key(s:views, a:tname)
         if s:views[a:tname]
             if a:mode == 2 || a:mode == 0
@@ -628,49 +627,62 @@ func TermdebugGoToTag(srvName)
     "             \ " -c 'tag "..expand('<cword>').." '"
     call search('(', 'cz')
     norm h
-    let cmdStr = 'echo "//tag ['..expand("<cword>")..']" >> '..g:termdebugFile
+    let cmdStr = 'echo "//@tag ['..expand("<cword>")..']" >> '..g:termdebugSelf
     "silent! call s:log.info(__func__, "cmdStr", cmdStr)
     call system(cmdStr)
 endfunc
 
 
 func s:ViewCreate()
+    let __func__ = 's:ViewCreate() '
+
     let ret = 0
     if !s:stopped | return | endif
 
     let ret = 1
-    if !has_key(s:views, 'tbpoint')
-        exec 'FloatermNew! --wintype=float --name=tbpoint --height=0.3 --width=0.3'..
-                    \ " --position=topright --title='breakpoint:tbpoint'"..
-                    \ " vim "
-                    \ "  -c 'set ft=c'"
-                    \ "  -c 'set nomodifiable'"
-                    \ "  -c 'nnoremap <silent> <2-LeftMouse> :<c-u>call TermdebugGoToTag(g:termdebugMain)<cr>'"
-                    \ "  -c 'nnoremap <silent> <Enter> :<c-u>call TermdebugGoToTag(g:termdebugMain)<cr>'"
-                    \ "  -c 'let g:termdebugSelf=\"tbpoint\"'"
-                    \ "  -c 'let g:termdebugFile=\"vim.gdb_bpoint\"'"
-                    \ "  -c 'let g:termdebugMain=\""..v:servername.."\"'"
-                    \ "  -c 'call Termtail(g:termdebugFile)'"
-                    \ "  ./vim.gdb_bpoint"
-        let s:views['tbpoint'] = 1
+    silent! call s:log.info(__func__, "enter")
+    if !has_key(s:views, g:termdebugFileBpoint)
+        call system('echo "//@update" >> '..g:termdebugFileBpoint)
+
+        let cmdStr = "FloatermNew!"..
+                    \ " --wintype=float --name="..g:termdebugFileBpoint.." --height=0.3 --width=0.3"..
+                    \ " --position=topright --title=breakpoint:"..g:termdebugFileBpoint..
+                    \ " vim "..
+                    \ "  -c 'set ft=c'"..
+                    \ "  -c 'set nomodifiable'"..
+                    \ "  -c 'nnoremap <silent> <2-LeftMouse> :<c-u>call TermdebugGoToTag(g:termdebugMain)<cr>'"..
+                    \ "  -c 'nnoremap <silent> <Enter> :<c-u>call TermdebugGoToTag(g:termdebugMain)<cr>'"..
+                    \ "  -c 'let g:termdebugSelf=\""..g:termdebugFileBpoint.."\"'"..
+                    \ "  -c 'let g:termdebugMain=\""..v:servername.."\"'"..
+                    \ "  -c 'call Termtail(g:termdebugSelf)'"..
+                    \ "  ./"..g:termdebugFileBpoint
+        "silent! call s:log.info(__func__, "cmdStr[", cmdStr, "]")
+        exec cmdStr
+        let s:views[g:termdebugFileBpoint] = 1
         let ret = 2
+        return ret
     endif
 
-    if !has_key(s:views, 'tbtrace')
-        exec "FloatermNew! --wintype=float --name=tbtrace --height=0.3 --width=0.3"..
-                    \ " --position=right --title='backtrace:tbtrace'"..
-                    \ " vim "
-                    \ "  -c 'set ft=c'"
-                    \ "  -c 'set nomodifiable'"
-                    \ "  -c 'nnoremap <silent> <2-LeftMouse> :<c-u>call TermdebugGoToTag(g:termdebugMain)<cr>'"
-                    \ "  -c 'nnoremap <silent> <Enter> :<c-u>call TermdebugGoToTag(g:termdebugMain)<cr>'"
-                    \ "  -c 'let g:termdebugSelf=\"tbtrace\"'"
-                    \ "  -c 'let g:termdebugFile=\"vim.gdb_btrace\"'"
-                    \ "  -c 'let g:termdebugMain=\""..v:servername.."\"'"
-                    \ "  -c 'call Termtail(g:termdebugFile)\'"
-                    \ "  ./vim.gdb_btrace"
-        let s:views['tbtrace'] = 1
+    if !has_key(s:views, g:termdebugFileBtrace)
+        call system('echo "//@update" >> '..g:termdebugFileBtrace)
+
+        let cmdStr = "FloatermNew!"..
+                    \ " --wintype=float --name="..g:termdebugFileBtrace.." --height=0.3 --width=0.3"..
+                    \ " --position=right --title=backtrace:"..g:termdebugFileBtrace..
+                    \ " vim "..
+                    \ "  -c 'set ft=c'"..
+                    \ "  -c 'set nomodifiable'"..
+                    \ "  -c 'nnoremap <silent> <2-LeftMouse> :<c-u>call TermdebugGoToTag(g:termdebugMain)<cr>'"..
+                    \ "  -c 'nnoremap <silent> <Enter> :<c-u>call TermdebugGoToTag(g:termdebugMain)<cr>'"..
+                    \ "  -c 'let g:termdebugSelf=\""..g:termdebugFileBtrace.."\"'"..
+                    \ "  -c 'let g:termdebugMain=\""..v:servername.."\"'"..
+                    \ "  -c 'call Termtail(g:termdebugSelf)\'"..
+                    \ "  ./"..g:termdebugFileBtrace
+        "silent! call s:log.info(__func__, "cmdStr[", cmdStr, "]")
+        exec cmdStr
+        let s:views[g:termdebugFileBtrace] = 1
         let ret = 2
+        return ret
     endif
 
     call s:ViewRedraw()
@@ -698,6 +710,7 @@ func TermDebugView(tname)
         else
             for tname in keys(s:views)
                 if !s:views[tname]
+                    call system('echo "//@update" >> '..tname)
                     call s:ViewToggle(tname, 2)
                     break
                 endif
