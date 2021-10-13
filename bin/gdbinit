@@ -65,7 +65,7 @@ define bsave
 	# C-style
 	shell perl -ne "print \"/*\$1-\$2*/⥀ \$4();\n\" if /(\d+)\s+breakpoint\s+keep\s+(\w+)\s+(\w+)\s+in\s+(\w+)\s+at\s+(.*):(\d+)/" /tmp/vim.gdb_bp > vim.gdb_bpoint
 	#shell sed  -i '1i // vim: set nomodifiable:' vim.gdb_bpoint
-	shell echo '//end' >> vim.gdb_bpoint
+	shell echo '//@end' >> vim.gdb_bpoint
 end
 
 document bsave
@@ -115,7 +115,7 @@ define parser_bt
 	# C-style
 	shell perl -ne "print \"⤤ \$3();\n\" if /#(\d+)\s+(.*)\s+(\w+)\s+\((.*)at\s+(.*):(\d+)/" /tmp/vimgdb.bt > vim.gdb_btrace
 	#shell sed  -i '1i // vim: set nomodifiable:' vim.gdb_btrace
-	shell echo '//end' >> vim.gdb_btrace
+	shell echo '//@end' >> vim.gdb_btrace
 
     #echo neobugger_parseend\n
 end
