@@ -1036,6 +1036,20 @@ func s:GdbUntil()
 endfunc
 
 
+func s:doContinue()
+    if s:stopped
+        call chansend(s:gdb_job_id, "continue\r")
+    endif
+endfunc
+
+
+func s:doSkip()
+    if s:stopped
+        call chansend(s:gdb_job_id, "skip\r")
+    endif
+endfunc
+
+
 " Install commands in the current window to control the debugger.
 func s:InstallCommands()
     let save_cpo = &cpo
@@ -1059,8 +1073,8 @@ func s:InstallCommands()
         command Continue call s:SendCommand('continue')
         command Skip call s:SendCommand('skip')
     else
-        command Continue call chansend(s:gdb_job_id, "continue\r")
-        command Skip call chansend(s:gdb_job_id, "skip\r")
+        command Continue call s:doContinue()
+        command Skip call s:doSkip()
     endif
 
     command GdbUntil call s:GdbUntil()
