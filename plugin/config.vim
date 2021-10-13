@@ -4,8 +4,10 @@ endif
 let g:loaded_termdebug_nvim = 1
 let g:termdebugMap = get(g:, 'termdebugMap', 1)
 
-let g:hw_gdb_file_bp = get(g:, 'hw_gdb_file_bp', "./vim.gdb_bp")
-" let s:views.breakpoint = 'tbpoint'
+let g:termdebugListBpoint = get(g:, 'termdebugListBpoint', "vim.gdb_bp")
+" The file name of backend file + floaterm's name
+let g:termdebugFileBpoint = get(g:, 'termdebugFileBpoint', "vim.gdb_bpoint")
+let g:termdebugFileBtrace = get(g:, 'termdebugFileBtrace', "vim.gdb_btrace")
 
 " exec 'FloatermNew! --wintype=float --name=tbtrace --height=0.3 --width=0.3 --position=right --title="breakpoints" vi -c ":echom wilson" ~/.vimrc'
 " let s:views.backtrace = 'tbtrace'
@@ -181,7 +183,7 @@ function! VimGdbCommandStr()
         if g:termdebugMap
             call s:Map('nmap')
         endif
-        "call s:Breaks2Qf(g:hw_gdb_file_bp)
+        "call s:Breaks2Qf(g:termdebugListBpoint)
 
         if filereadable('./sysinit/init')
             return "Termdebug sysinit/init"
