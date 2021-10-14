@@ -1,6 +1,5 @@
 termdebug.nvim
 ==============
-
 Copy termdebug.vim but with more features:
 - [x] enable customer define key-map
 - breakpoints
@@ -10,6 +9,12 @@ Copy termdebug.vim but with more features:
 - [x] push backtrace to floatterm
 - [x] add auto mode to: vertical, horizon
 - [ ] output to floaterm
+
+Why I copy/change termdebug.nvim:
+- open to use, easy add customize keymap,
+- quick, some gdb front-end using python api slow down the program,
+- have gdb interact cmd shell, can't find it in `vimspector`
+  - customize pretty-print
 
 ## QuickStart (default map)
 
