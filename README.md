@@ -34,7 +34,7 @@ Sample 2:
 
 - only work under linux(perl/gawk/echo) + neovim(ipc by `nvr`)
 - require [nvr](https://github.com/mhinz/neovim-remote) to support floaterm ipc with main-gdb-window
-	$ pip3 install --user neovim-remote
+	`$ pip3 install --user neovim-remote`
 - require vim plugin [vim-floaterm](https://github.com/voldikss/vim-floaterm) to support backtrace/breakpoints float windows
 	* vim-plug
 		Plug 'voldikss/vim-floaterm'
