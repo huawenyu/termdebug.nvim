@@ -154,9 +154,7 @@ fun! s:Map(type)
             exe 'nnoremap <silent> ' . g:termdebugMapFrameUp          . ' :call TermDebugSendCommand("up")<cr>'
             exe 'nnoremap <silent> ' . g:termdebugMapFrameDown        . ' :call TermDebugSendCommand("down")<cr>'
 
-            exe 'nnoremap <silent> ' . g:termdebugMapViewToggle       . ' :call TermDebugView("all")<cr>'
             exe 'vnoremap <silent> ' . g:termdebugMapViewToggle       . ' :call TermDebugView("all")<cr>'
-
             exe 'nnoremap <silent> ' . g:termdebugMapViewBpoint       . ' :call TermDebugView("tbpoint")<cr>'
             exe 'nnoremap <silent> ' . g:termdebugMapViewBtrace       . ' :call TermDebugView("tbtrace")<cr>'
         "endif
