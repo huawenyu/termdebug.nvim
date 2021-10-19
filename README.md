@@ -3,7 +3,9 @@ termdebug.nvim
 Copy termdebug.vim but with more features:
 
 [![screen](./screen.gif)](#features)
+GIF record by [Peek](https://github.com/phw/peek)
 
+Features:
 - [x] enable customer define key-map
 - breakpoints
   - [x] auto breakpoints save/restore base on function
@@ -41,28 +43,31 @@ Why I copy/change termdebug.nvim:
 
 - only work under linux(perl/gawk/echo) + neovim(ipc by `nvr`)
 - require [nvr](https://github.com/mhinz/neovim-remote) to support floaterm ipc with main-gdb-window
-
-	`$ pip3 install --user neovim-remote`
+```sh
+	$ pip3 install --user neovim-remote
+```
 - require vim plugin [vim-floaterm](https://github.com/voldikss/vim-floaterm) to support backtrace/breakpoints float windows
-	* vim-plug
-		Plug 'voldikss/vim-floaterm'
-	* dein.nvim
-		call dein#add('voldikss/vim-floaterm')	
-- remote plugin by vim command:
-
-	`:UpdateRemotePlugins`
-
+```vim
+	" vim-plug
+	Plug 'voldikss/vim-floaterm'
+	" dein.nvim
+	call dein#add('voldikss/vim-floaterm')
+```
+- remote plugin (python implement file monitor):
+```vim
+	:UpdateRemotePlugins
+```
 ## Keymap: [default]
 
 Keymap [Enable]/disable:  g:termdebugMap
 ```vim
 	let g:termdebugMap = 0
+	let g:termdebug_wide = 2
+	"GDB-window mode:  g:termdebug_wide
+	" 0   horizon
+	" 1   vertical
+	"[2]  auto
 ```
-GDB-window mode:  g:termdebug_wide
-	 0   horizon
-	 1   vertical
-	[2]  auto
-
 
 # Command & Keymap
 
