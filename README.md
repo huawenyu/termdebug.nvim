@@ -55,6 +55,7 @@ Why I copy/change termdebug.nvim:
 ```
 - remote plugin (python implement file monitor):
 ```vim
+	:PlugInstall
 	:UpdateRemotePlugins
 ```
 ## Keymap: [default]
