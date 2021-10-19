@@ -20,7 +20,7 @@ Why I copy/change termdebug.nvim:
   - customize pretty-print
 
 ## QuickStart (default map)
-```yaml
+```sh
 1. edit a *.c file by neovim:
 
 	$ nvim t1.c
