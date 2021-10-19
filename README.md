@@ -20,17 +20,22 @@ Why I copy/change termdebug.nvim:
   - customize pretty-print
 
 ## QuickStart (default map)
-
+```yaml
 1. edit a *.c file by neovim:
+
 	$ nvim t1.c
 	$ gcc -g -O0 -o t1 t1.c
+
 2. Press <F2>, or execute command
+
 	:Termdebug t1
+
 3. The gdb frontend start:
 4. Press <C-u>		# Open/Toggle backtrace/breakpoints view
    Press multiple times: toggle iter between views
 5. Press <a-.>		# Focus breakpoints
 6. Press <a-,>		# Focus backtrace
+```
 
 ## PreRequire
 
