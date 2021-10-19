@@ -50,8 +50,8 @@ Why I copy/change termdebug.nvim:
 ```vim
 	" vim-plug
 	Plug 'voldikss/vim-floaterm'
-	" dein.nvim
-	call dein#add('voldikss/vim-floaterm')
+	""if use dein.nvim
+	"call dein#add('voldikss/vim-floaterm')
 ```
 - remote plugin (python implement file monitor):
 ```vim
