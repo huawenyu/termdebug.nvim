@@ -50,9 +50,9 @@ else
     let g:termdebugMapFrameUp        = get(g:, 'termdebugMapFrameUp',        '<a-n>')
     let g:termdebugMapFrameDown      = get(g:, 'termdebugMapFrameDown',      '<a-p>')
 
-    let g:termdebugMapViewToggle     = get(g:, 'termdebugMapViewToggle',     '<c-u>')
-    let g:termdebugMapViewBpoint     = get(g:, 'termdebugMapViewBpoint',     '<a-.>')
-    let g:termdebugMapViewBtrace     = get(g:, 'termdebugMapViewBtrace',     '<a-,>')
+    "let g:termdebugMapViewToggle     = get(g:, 'termdebugMapViewToggle',     '<c-u>')
+    "let g:termdebugMapViewBpoint     = get(g:, 'termdebugMapViewBpoint',     '<a-.>')
+    "let g:termdebugMapViewBtrace     = get(g:, 'termdebugMapViewBtrace',     '<a-,>')
 endif
 " }}}
 
@@ -116,10 +116,10 @@ fun! s:Map(type)
         exe 'cunmap ' . g:termdebugMapToggleBreak
         exe 'unmap '  . g:termdebugMapFrameUp
         exe 'unmap '  . g:termdebugMapFrameDown
-        exe 'unmap '  . g:termdebugMapViewToggle
-        exe 'vunmap ' . g:termdebugMapViewToggle
-        exe 'unmap '  . g:termdebugMapViewBpoint
-        exe 'unmap '  . g:termdebugMapViewBtrace
+        "exe 'unmap '  . g:termdebugMapViewToggle
+        "exe 'vunmap ' . g:termdebugMapViewToggle
+        "exe 'unmap '  . g:termdebugMapViewBpoint
+        "exe 'unmap '  . g:termdebugMapViewBtrace
     elseif a:type ==# "nmap"
         "if exists(":Termdebug")
             nnoremap <RightMouse> :Evaluate<CR>
@@ -127,10 +127,15 @@ fun! s:Map(type)
             exe 'nnoremap <silent> ' . g:termdebugMapRefresh          . ' :call TermDebugSendCommand("info local")<cr>'
             exe 'nnoremap <silent> ' . g:termdebugMapContinue         . ' :Continue<cr>'
             exe 'nnoremap <silent> ' . g:termdebugMapNext             . ' :Over<cr>'
+            exe 'tnoremap <silent> ' . g:termdebugMapNext             . ' <C-\><C-n>:Over<cr>'
             exe 'nnoremap <silent> ' . g:termdebugMapStep             . ' :Step<cr>'
+            exe 'tnoremap <silent> ' . g:termdebugMapStep             . ' <C-\><C-n>:Step<cr>'
             exe 'nnoremap <silent> ' . g:termdebugMapSkip             . ' :Skip<cr>'
+            exe 'tnoremap <silent> ' . g:termdebugMapSkip             . ' <C-\><C-n>:Skip<cr>'
             exe 'nnoremap <silent> ' . g:termdebugMapFinish           . ' :Finish<cr>'
+            exe 'tnoremap <silent> ' . g:termdebugMapFinish           . ' <C-\><C-n>:Finish<cr>'
             exe 'nnoremap <silent> ' . g:termdebugMapUntil            . ' :GdbUntil<cr>'
+            exe 'tnoremap <silent> ' . g:termdebugMapUntil            . ' <C-\><C-n>:GdbUntil<cr>'
 
             let toggle_break_binding = 'nnoremap <silent> '  . g:termdebugMapToggleBreak . ' :Break<cr>'
             " if !g:gdb_require_enter_after_toggling_breakpoint
@@ -154,9 +159,9 @@ fun! s:Map(type)
             exe 'nnoremap <silent> ' . g:termdebugMapFrameUp          . ' :call TermDebugSendCommand("up")<cr>'
             exe 'nnoremap <silent> ' . g:termdebugMapFrameDown        . ' :call TermDebugSendCommand("down")<cr>'
 
-            exe 'nnoremap <silent> ' . g:termdebugMapViewToggle       . ' :call TermDebugView("all")<cr>'
-            exe 'nnoremap <silent> ' . g:termdebugMapViewBpoint       . ' :call TermDebugView("tbpoint")<cr>'
-            exe 'nnoremap <silent> ' . g:termdebugMapViewBtrace       . ' :call TermDebugView("tbtrace")<cr>'
+            "exe 'nnoremap <silent> ' . g:termdebugMapViewToggle       . ' :call TermDebugView("all")<cr>'
+            "exe 'nnoremap <silent> ' . g:termdebugMapViewBpoint       . ' :call TermDebugView("tbpoint")<cr>'
+            "exe 'nnoremap <silent> ' . g:termdebugMapViewBtrace       . ' :call TermDebugView("tbtrace")<cr>'
         "endif
     endif
 endf
@@ -195,6 +200,58 @@ function! VimGdbCommandStr()
     endif
 endfunction
 
+
+
+"Make sure the right tab is closed on vimdiff toggle
+fun! s:open_gdb()
+    "setlocal bh=wipe " Vwm always makes it's open buffer so get rid of this buf when it's closed
+    " exec 'resize ' . string(&lines *  0.25)
+    let s:nodeGdb_width = string(&columns * 0.4)
+endfun
+
+fun! s:close_gdb()
+    echomsg "GdbClose!"
+endfun
+
+"    \  'init': ['normal imain'],
+"    \  'opnBfr': [function('s:open_vimdiff')],
+"    \  'clsAftr': [function('s:close_vimdiff')],
+"    \  'set_all': ['nobl', 'bh=wipe', 'nomodified'],
+
+let s:nodeGdb_height = string(&lines * 0.3)
+let s:nodeGdb_width = string(&columns * 0.4)
+let s:nodeGdb_width2 = string(&columns * 0.2)
+let s:node_gdb = {
+    \  'gdb': {
+    \      'name': 'gdb',
+    \      'right': {
+    \        'init': [],
+    \        'focus': 1,
+    \        'v_sz': s:nodeGdb_width,
+    \        'top': {
+    \          'init':   ['edit vim.gdb_bpoint'],
+    \          'update': ['edit vim.gdb_bpoint'],
+    \          'set':    ['ft=c', 'bh=wipe', 'nobl', 'noswapfile', 'nomodified', 'nomodified', 'nornu', 'nonu'],
+    \          'h_sz': s:nodeGdb_height,
+    \          'left': {
+    \            'init':   ['edit vim.gdb_btrace'],
+    \            'update': ['edit vim.gdb_btrace'],
+    \            'set':    ['ft=c', 'bh=wipe', 'nobl', 'noswapfile', 'nomodified', 'nomodified', 'nornu', 'nonu'],
+    \            'v_sz': s:nodeGdb_width2,
+    \          }
+    \        },
+    \      },
+    \  }
+    \}
+
+if exists('g:vwm#layouts')
+    let g:vwm#layouts = hw#misc#merge(g:vwm#layouts, s:node_gdb)
+    if exists('g:vwm#active')
+        VwmReinit
+    endif
+else
+    let g:vwm#layouts = s:node_gdb
+endif
 
 if g:termdebugMap
     exec 'nnoremap '..g:termdebugMapTrigger..' :<c-u><C-\>e VimGdbCommandStr()<cr>'
