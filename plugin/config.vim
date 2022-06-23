@@ -225,21 +225,24 @@ let s:node_gdb = {
     \  'gdb': {
     \      'name': 'gdb',
     \      'right': {
-    \        'init': [],
-    \        'focus': 1,
-    \        'v_sz': s:nodeGdb_width,
-    \        'top': {
-    \          'init':   ['edit vim.gdb_bpoint'],
-    \          'update': ['edit vim.gdb_bpoint'],
-    \          'set':    ['ft=c', 'bh=wipe', 'nobl', 'noswapfile', 'nomodified', 'nomodified', 'nornu', 'nonu'],
-    \          'h_sz': s:nodeGdb_height,
-    \          'left': {
-    \            'init':   ['edit vim.gdb_btrace'],
-    \            'update': ['edit vim.gdb_btrace'],
-    \            'set':    ['ft=c', 'bh=wipe', 'nobl', 'noswapfile', 'nomodified', 'nomodified', 'nornu', 'nonu'],
-    \            'v_sz': s:nodeGdb_width2,
-    \          }
-    \        },
+    \          'name': 'winGdb',
+    \          'init': ['echo'],
+    \          'focus': 1,
+    \          'v_sz': s:nodeGdb_width,
+    \          'top': {
+    \              'name': 'winBreakpoint',
+    \              'init':   ['edit vim.gdb_bpoint'],
+    \              'update': ['edit vim.gdb_bpoint'],
+    \              'set':    ['ft=c', 'bh=wipe', 'nobl', 'noswapfile', 'nomodified', 'nomodified', 'nornu', 'nonu'],
+    \              'h_sz': s:nodeGdb_height,
+    \              'left': {
+    \                  'name': 'winBacktrace',
+    \                  'init':   ['edit vim.gdb_btrace'],
+    \                  'update': ['edit vim.gdb_btrace'],
+    \                  'set':    ['ft=c', 'bh=wipe', 'nobl', 'noswapfile', 'nomodified', 'nomodified', 'nornu', 'nonu'],
+    \                  'v_sz': s:nodeGdb_width2,
+    \              }
+    \          },
     \      },
     \  }
     \}
