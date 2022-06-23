@@ -309,6 +309,7 @@ func s:StartDebug_term(dict)
   "  execute 'new'
   "endif
   exe 'VwmOpen gdb'
+  let g:deoplete#disable_auto_complete = 0
 
   " call ch_log('executing "' . join(gdb_cmd) . '"')
   let s:gdb_job_id = termopen(gdb_cmd, {'on_exit': function('s:EndTermDebug')})
@@ -397,7 +398,6 @@ func s:StartDebug_term(dict)
     endif
 
     sleep 10m
-    exe 'VwmResize gdb'
   endwhile
 
   let s:starting = v:false
