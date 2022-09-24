@@ -1012,15 +1012,15 @@ endfunc
 
 " Install the window toolbar in the current window.
 func s:InstallWinbar()
-  " if has('menu') && &mouse != ''
-  "   nnoremenu WinBar.Step   :Step<CR>
-  "   nnoremenu WinBar.Next   :Over<CR>
-  "   nnoremenu WinBar.Finish :Finish<CR>
-  "   nnoremenu WinBar.Cont   :Continue<CR>
-  "   nnoremenu WinBar.Stop   :Stop<CR>
-  "   nnoremenu WinBar.Eval   :Evaluate<CR>
-  "   call add(s:winbar_winids, win_getid(winnr()))
-  " endif
+  "if has('menu') && &mouse != ''
+  "  nnoremenu WinBar.Step   :Step<CR>
+  "  nnoremenu WinBar.Next   :Over<CR>
+  "  nnoremenu WinBar.Finish :Finish<CR>
+  "  nnoremenu WinBar.Cont   :Continue<CR>
+  "  nnoremenu WinBar.Stop   :Stop<CR>
+  "  nnoremenu WinBar.Eval   :Evaluate<CR>
+  "  call add(s:winbar_winids, win_getid(winnr()))
+  "endif
 endfunc
 
 " Delete installed debugger commands in the current window.
@@ -1251,27 +1251,34 @@ endfunc
 
 " get what is specified / under the cursor
 func s:GetEvaluationExpression(range, arg)
-  if a:arg != ''
-    " user supplied evaluation
-    let expr = s:CleanupExpr(a:arg)
-    " DSW: replace "likely copy + paste" assignment
-    let expr = substitute(expr, '"\([^"]*\)": *', '\1=', 'g')
-  elseif a:range == 2
-    let pos = getcurpos()
-    let reg = getreg('v', 1, 1)
-    let regt = getregtype('v')
-    normal! gv"vy
-    let expr = s:CleanupExpr(@v)
-    call setpos('.', pos)
-    call setreg('v', reg, regt)
-    let s:evalFromBalloonExpr = 1
-  else
-    " no evaluation provided: get from C-expression under cursor
-    " TODO: allow filetype specific lookup #9057
-    let expr = expand('<cexpr>')
-    let s:evalFromBalloonExpr = 1
-  endif
-  return expr
+    let __func__ = "s:GetEvaluationExpression() "
+
+    silent! call s:log.info(__func__, a:arg, a:range)
+    if a:arg != ''
+        silent! call s:log.info(__func__, "palce1")
+        " user supplied evaluation
+        let expr = s:CleanupExpr(a:arg)
+        " DSW: replace "likely copy + paste" assignment
+        let expr = substitute(expr, '"\([^"]*\)": *', '\1=', 'g')
+    elseif a:range == 2
+        silent! call s:log.info(__func__, "palce2")
+        let pos = getcurpos()
+        let reg = getreg('v', 1, 1)
+        let regt = getregtype('v')
+        normal! gv"vy
+        let expr = s:CleanupExpr(@v)
+        call setpos('.', pos)
+        call setreg('v', reg, regt)
+        let s:evalFromBalloonExpr = 1
+    else
+        silent! call s:log.info(__func__, "palce3")
+        " no evaluation provided: get from C-expression under cursor
+        " TODO: allow filetype specific lookup #9057
+        let expr = expand('<cexpr>')
+        let s:evalFromBalloonExpr = 1
+    endif
+    silent! call s:log.info(__func__, "expr=", expr)
+    return expr
 endfunc
 
 " clean up expression that may get in because of range
@@ -1316,8 +1323,7 @@ func s:HandleEvaluate(msg)
         "\ ->substitute('\\0x00', s:NullRep, 'g')
         "\ ->substitute('\\0x\(\x\x\)', {-> eval('"\x' .. submatch(1) .. '"')}, 'g')
         \ ->substitute(s:NullRepl, '\\000', 'g')
-        \ ->substitute('
-', '\1', '')
+        \ ->substitute('', '\1', '')
   if s:evalFromBalloonExpr
     if s:evalFromBalloonExprResult == ''
       let s:evalFromBalloonExprResult = s:evalexpr . ': ' . value
