@@ -1251,17 +1251,16 @@ endfunc
 
 " get what is specified / under the cursor
 func s:GetEvaluationExpression(range, arg)
-    let __func__ = "s:GetEvaluationExpression() "
-
-    silent! call s:log.info(__func__, a:arg, a:range)
+    "let __func__ = "s:GetEvaluationExpression() "
+    "silent! call s:log.info(__func__, a:arg, a:range)
     if a:arg != ''
-        silent! call s:log.info(__func__, "palce1")
+        "silent! call s:log.info(__func__, "palce1")
         " user supplied evaluation
         let expr = s:CleanupExpr(a:arg)
         " DSW: replace "likely copy + paste" assignment
         let expr = substitute(expr, '"\([^"]*\)": *', '\1=', 'g')
     elseif a:range == 2
-        silent! call s:log.info(__func__, "palce2")
+        "silent! call s:log.info(__func__, "palce2")
         let pos = getcurpos()
         let reg = getreg('v', 1, 1)
         let regt = getregtype('v')
@@ -1271,13 +1270,13 @@ func s:GetEvaluationExpression(range, arg)
         call setreg('v', reg, regt)
         let s:evalFromBalloonExpr = 1
     else
-        silent! call s:log.info(__func__, "palce3")
+        "silent! call s:log.info(__func__, "palce3")
         " no evaluation provided: get from C-expression under cursor
         " TODO: allow filetype specific lookup #9057
         let expr = expand('<cexpr>')
         let s:evalFromBalloonExpr = 1
     endif
-    silent! call s:log.info(__func__, "expr=", expr)
+    "silent! call s:log.info(__func__, "expr=", expr)
     return expr
 endfunc
 
