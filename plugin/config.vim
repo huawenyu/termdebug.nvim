@@ -122,6 +122,8 @@ fun! s:Map(type)
         "exe 'unmap '  . g:termdebugMapViewBtrace
     elseif a:type ==# "nmap"
         "if exists(":Termdebug")
+            silent! Shortcut!   [o      [termdebug.nvim](gdb) <F*> F4-Continue, F5-Next(S-Skip), F6-StepIn(S-Finish), F7-RunToHere, F8-Evaluate(S-Watch), F9-ToggleBreak
+
             nnoremap <RightMouse> :Evaluate<CR>
 
             exe 'nnoremap <silent> ' . g:termdebugMapRefresh          . ' :call TermDebugSendCommand("info local")<cr>'
