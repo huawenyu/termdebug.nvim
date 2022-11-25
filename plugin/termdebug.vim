@@ -1593,7 +1593,6 @@ func s:HandleCursor(msg)
   if a:msg =~ '^\(\*stopped\|=thread-selected\)' && filereadable(fname)
     let lnum = substitute(a:msg, '.*line="\([^"]*\)".*', '\1', '')
     if lnum =~ '^[0-9]*$'
-      exe 'VwmUpdate gdb'
       call s:GotoSourcewinOrCreateIt()
 
       " Comment: don't create another window to break current layout
@@ -1633,6 +1632,9 @@ func s:HandleCursor(msg)
         call add(s:signcolumn_buflist, bufnr())
       endif
       setlocal signcolumn=yes
+
+      " Update other windows/view: backtrace, breakpoint
+      exe 'VwmUpdate gdb'
     endif
   elseif !s:stopped || fname != ''
     call sign_unplace('TermDebug', #{id: s:pc_id})
