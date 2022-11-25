@@ -81,6 +81,7 @@ let s:stopped = 1
 let s:parsing_disasm_msg = 0
 let s:asm_lines = []
 let s:asm_addr = ''
+let s:timer = ''
 
 " Take a breakpoint number as used by GDB and turn it into an integer.
 " The breakpoint may contain a dot: 123.4 -> 123004
@@ -1640,27 +1641,30 @@ func s:HandleCursor(msg)
     call sign_unplace('TermDebug', #{id: s:pc_id})
   endif
 
-  " [@wilson] fix the gdb-terminal always exit insert-mode:
-  " - the cause is startinsert not works if call from backend thread, not UI-thread.
-  " - throw the task to timer, which belong to UI-thread,
-  " - seem small timer also not works,
-  call timer_start(50, 'Goback2CurWin')
-  "call win_gotoid(wid)
   "exe wid_nr .. "wincmd w"
-  "if &buftype == "terminal"
-  "    startinsert
-  "elseif &buftype == ""
-  "    stopinsert
-  "endif
+  call win_gotoid(s:cur_wid)
+  if &buftype == "terminal"
+      " [@wilson] fix the gdb-terminal always exit insert-mode:
+      " - the cause is startinsert not works if call from backend thread, not UI-thread.
+      " - throw the task to timer, which belong to UI-thread,
+      " - seem small timer also not works,
+      "
+      "startinsert
+      if len(s:timer) > 0
+          call timer_stop(s:timer)
+      endif
+      let s:timer = timer_start(50, 'Goback2CurWin')
+  elseif &buftype == ""
+      stopinsert
+  endif
 endfunc
 
 func Goback2CurWin(timer)
+  let s:timer = ""
   "exe s:wid_nr .. "wincmd w"
   call win_gotoid(s:cur_wid)
   if &buftype == "terminal"
       startinsert
-  elseif &buftype == ""
-      stopinsert
   endif
 endfunc
 
