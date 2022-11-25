@@ -1553,7 +1553,8 @@ endfunc
 " Handle stopping and running message from gdb.
 " Will update the sign that shows the current position.
 func s:HandleCursor(msg)
-  let wid = win_getid(winnr())
+  "let s:wid_nr = winnr()
+  let s:cur_wid = win_getid(winnr())
 
   if a:msg =~ '^\*stopped'
     "call ch_log('program stopped')
@@ -1592,6 +1593,7 @@ func s:HandleCursor(msg)
   if a:msg =~ '^\(\*stopped\|=thread-selected\)' && filereadable(fname)
     let lnum = substitute(a:msg, '.*line="\([^"]*\)".*', '\1', '')
     if lnum =~ '^[0-9]*$'
+      exe 'VwmUpdate gdb'
       call s:GotoSourcewinOrCreateIt()
 
       " Comment: don't create another window to break current layout
@@ -1621,7 +1623,8 @@ func s:HandleCursor(msg)
       exe 'edit ' . fnameescape(fname)
 
       exe lnum
-      normal! zv
+      "normal! zv
+      normal! zz
       call sign_unplace('TermDebug', #{id: s:pc_id})
       call sign_place(s:pc_id, 'TermDebug', 'debugPC', fname,
             \ #{lnum: lnum, priority: 110})
@@ -1630,14 +1633,31 @@ func s:HandleCursor(msg)
         call add(s:signcolumn_buflist, bufnr())
       endif
       setlocal signcolumn=yes
-      exe 'VwmUpdate gdb'
     endif
   elseif !s:stopped || fname != ''
     call sign_unplace('TermDebug', #{id: s:pc_id})
   endif
 
-  call win_gotoid(wid)
-  if &buftype == ""
+  " [@wilson] fix the gdb-terminal always exit insert-mode:
+  " - the cause is startinsert not works if call from backend thread, not UI-thread.
+  " - throw the task to timer, which belong to UI-thread,
+  " - seem small timer also not works,
+  call timer_start(50, 'Goback2CurWin')
+  "call win_gotoid(wid)
+  "exe wid_nr .. "wincmd w"
+  "if &buftype == "terminal"
+  "    startinsert
+  "elseif &buftype == ""
+  "    stopinsert
+  "endif
+endfunc
+
+func Goback2CurWin(timer)
+  "exe s:wid_nr .. "wincmd w"
+  call win_gotoid(s:cur_wid)
+  if &buftype == "terminal"
+      startinsert
+  elseif &buftype == ""
       stopinsert
   endif
 endfunc
@@ -1689,6 +1709,12 @@ func s:HandleNewBreakpoint(msg, modifiedFlag)
   endif
 
   let __func__ = "s:HandleNewBreakpoint() "
+  " Run-to-line by termporary breakpoint:
+  "   breakpoint-created,bkpt={number="5",type="breakpoint",disp="del",enabled="y",addr="0xEF",func="main",file="t2.c",fullname="/home/user/tmp/t2.c",line="124",
+  "   breakpoint-modified,bkpt={number="5",type="breakpoint",disp="del",enabled="y",addr="0xEF",func="main",file="t2.c",fullname="/home/user/tmp/t2.c",line="124",
+  " Add a really breakpoint:
+  "   Add breakpoint: ^done,bkpt={number="6",type="breakpoint",disp="keep",enabled="y",addr="0xEF",func="list_fake",file="t2.c",fullname="/home/user/tmp/t2.c",line="16",
+  "   Disable breakpoint: breakpoint-modified,bkpt={number="2",type="breakpoint",disp="keep",enabled="n",addr="0x00000000000012cf",func="list_print",file="t2.c"
   "silent! call s:log.info(__func__, "breakpoint.msg", a:msg)
 
   for msg in s:SplitMsg(a:msg)
@@ -1697,7 +1723,12 @@ func s:HandleNewBreakpoint(msg, modifiedFlag)
       continue
     endif
 
-    "let bp_enable = s:GetKeyValue(msg, "enabled")
+    " Don't handle Termporary breakpoint
+    let disp = s:GetKeyValue(msg, "disp")
+    if disp == 'del'
+        return
+    endif
+
     let nr = substitute(msg, '.*number="\([0-9.]*\)\".*', '\1', '')
     if empty(nr)
       return
