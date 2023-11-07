@@ -178,11 +178,14 @@ function! VimGdbCommandStr()
         "let g:termdebugger_program = "pio device monitor -b 38400"
         "let g:termdebug_useFloatingHover = 0
         let g:termdebug_wide = get(g:, 'termdebug_wide', 2)
-        if filereadable('./cooked/gdb-x86')
-            let g:termdebugger = './cooked/gdb-x86'
-        else
-            let g:termdebugger = 'gdb'
-        endif
+
+        " Comment-out: gdb-x86 can't support python
+        "if filereadable('./cooked/gdb-x86')
+        "    let g:termdebugger = './cooked/gdb-x86'
+        "else
+        "    let g:termdebugger = 'gdb'
+        "endif
+        let g:termdebugger = 'gdb'
 
         "hi debugPC term=reverse ctermbg=darkyellow guibg=darkyellow
         hi debugPC cterm=NONE ctermbg=darkgreen ctermfg=white guibg=darkgreen guifg=white
