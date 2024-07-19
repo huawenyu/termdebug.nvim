@@ -185,7 +185,9 @@ function! VimGdbCommandStr()
         "else
         "    let g:termdebugger = 'gdb'
         "endif
-        let g:termdebugger = 'gdb'
+        if !exists("g:termdebugger")
+            let g:termdebugger = 'gdb'
+        endif
 
         "hi debugPC term=reverse ctermbg=darkyellow guibg=darkyellow
         hi debugPC cterm=NONE ctermbg=darkgreen ctermfg=white guibg=darkgreen guifg=white
